@@ -967,6 +967,12 @@ export default function App() {
             {restoreLoading ? "..." : "⬆ Restore (.xlsx)"}
           </button>
         </div>
+        <div className="lang-switcher" style={{ margin: "0 16px", marginBottom: "10px" }}>
+          <button className="lang-btn" onClick={() => setModal({ type: "db_settings", data: null })} style={{ width: "100%", justifyContent: "center", color: "var(--accent)" }}>
+            ⚙️ DB Settings
+          </button>
+        </div>
+
 
         {/* ── Theme Switcher ── */}
 
