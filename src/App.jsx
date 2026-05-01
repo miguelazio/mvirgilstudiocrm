@@ -873,9 +873,12 @@ export default function App() {
 
       <nav className={`sidebar${sidebarOpen ? " open" : ""}`}>
 
-        <div className="sidebar-logo">
-          MV<span style={{ color: "var(--accent)" }}>.</span>
-          <button className="sidebar-close-btn" onClick={() => setSidebarOpen(false)}>×</button>
+        <div className="sidebar-logo" style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "10px", borderBottom: "1px solid var(--border)", paddingBottom: "15px", marginBottom: "15px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", width: "100%" }}>
+            <img src={logo} alt="MVFX Logo" style={{ height: "32px", width: "auto" }} />
+            <button className="sidebar-close-btn" onClick={() => setSidebarOpen(false)} style={{ marginLeft: "auto" }}>×</button>
+          </div>
+          <div style={{ fontSize: "10px", letterSpacing: "2px", color: "var(--text)", fontWeight: "600", opacity: 0.9 }}>MIGUEL VIRGÍLIO STUDIO</div>
         </div>
 
         {TABS.map(([k, icon, label]) => {
