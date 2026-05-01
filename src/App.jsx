@@ -878,7 +878,10 @@ export default function App() {
             <img src={logo} alt="MVFX Logo" style={{ height: "32px", width: "auto" }} />
             <button className="sidebar-close-btn" onClick={() => setSidebarOpen(false)} style={{ marginLeft: "auto" }}>×</button>
           </div>
-          <div style={{ fontSize: "10px", letterSpacing: "2px", color: "var(--text)", fontWeight: "600", opacity: 0.9 }}>MIGUEL VIRGÍLIO STUDIO</div>
+          <div style={{ fontSize: "10px", letterSpacing: "2px", color: "var(--text)", textTransform: "uppercase" }}>
+            <span style={{ fontWeight: "800", color: "var(--accent)" }}>MIGUEL VIRGÍLIO</span>
+            <span style={{ fontWeight: "400", opacity: 0.5, marginLeft: "6px" }}>STUDIO</span>
+          </div>
         </div>
 
         {TABS.map(([k, icon, label]) => {
