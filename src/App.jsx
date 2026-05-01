@@ -461,14 +461,15 @@ export default function App() {
 
     // Load Phases from global_project_phases
     supabase.from('global_project_phases').select('*').order('sort_order', { ascending: true }).then(({ data, error }) => {
-      if (!error && data) {
+      if (!error && data && data.length > 0) {
         const phasesObj = {};
         data.forEach(d => {
           const type = d.project_type || 'VFX';
           if (!phasesObj[type]) phasesObj[type] = [];
           phasesObj[type].push(d.label_en);
         });
-        setCustomProjectPhases(phasesObj);
+        // Merge with defaults so we don't lose hardcoded ones if DB is partially empty
+        setCustomProjectPhases(prev => ({ ...prev, ...phasesObj }));
       }
     });
   }, [session]);
