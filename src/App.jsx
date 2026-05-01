@@ -109,6 +109,9 @@ const T = {
     lbl_specialty: "Specialty / Service",
     lbl_associated_project: "Associated Project",
     none: "None",
+    drafts: "Draft List",
+    add_draft: "+ Add Draft",
+    promote: "Promote",
     manage_types_phases: "Manage Project Types & Phases",
     lbl_project_types: "Project Types",
     lbl_manage_phases: "Manage Phases",
@@ -199,6 +202,9 @@ const T = {
     lbl_specialty: "Especialidade / Serviço",
     lbl_associated_project: "Projeto Associado",
     none: "Nenhum",
+    drafts: "Lista de Rascunhos",
+    add_draft: "+ Adicionar Rascunho",
+    promote: "Promover",
     manage_types_phases: "Gerir Tipos e Etapas de Projeto",
     lbl_project_types: "Tipos de Projeto",
     lbl_manage_phases: "Gerir Etapas",
@@ -256,6 +262,7 @@ export default function App() {
   const [lang, setLang] = React.useState("pt");
   const [theme, setTheme] = React.useState("dark");
   const [tab, setTab] = React.useState("pipeline");
+  const [showDrafts, setShowDrafts] = React.useState(false);
   const [viewMode, setViewMode] = React.useState("table");
   const [modal, setModal] = React.useState(null);
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
@@ -347,6 +354,7 @@ export default function App() {
     try {
       const wb = XLSX.utils.book_new();
       const tables = [
+        { name: 'draft_leads', query: supabase.from('draft_leads').select('*') },
         { name: 'leads', query: supabase.from('leads').select('*') },
         { name: 'projects', query: supabase.from('projects').select('*') },
         { name: 'partners', query: supabase.from('partners').select('*') },
@@ -413,6 +421,7 @@ export default function App() {
 
   // Dummy Initial States
   const [leads, setLeads] = React.useState([]);
+  const [draftLeads, setDraftLeads] = React.useState([]);
   const [projects, setProjects] = React.useState([]);
 
   const [customProjectTypes, setCustomProjectTypes] = React.useState([...DEFAULT_PROJECT_TYPES]);
@@ -716,6 +725,44 @@ export default function App() {
     }
     setModal(null);
   };
+
+  const saveDraftLead = async (d) => {
+    const payload = { ...d };
+    if (d.id) {
+      const { data, error } = await supabase.from('draft_leads').update(payload).eq('id', d.id).select().single();
+      if (data) setDraftLeads(prev => prev.map(x => x.id === d.id ? data : x));
+    } else {
+      const { data, error } = await supabase.from('draft_leads').insert([payload]).select().single();
+      if (data) setDraftLeads(prev => [data, ...prev]);
+    }
+    setModal(null);
+  };
+
+  const deleteDraftLead = async (id) => {
+    if (!window.confirm("Delete this draft?")) return;
+    await supabase.from('draft_leads').delete().eq('id', id);
+    setDraftLeads(prev => prev.filter(x => x.id !== id));
+  };
+
+  const promoteToLead = async (draft) => {
+    if (!window.confirm("Promote this draft to a full lead?")) return;
+    const leadPayload = {
+      company: draft.company,
+      notes: `Source: Draft List\nWebsite: ${draft.website || 'N/A'}\nNotes: ${draft.notes || ''}`,
+      status: 0,
+      createdAt: new Date().toISOString().split("T")[0]
+    };
+    const { data, error } = await supabase.from('leads').insert([leadPayload]).select().single();
+    if (data) {
+      setLeads(prev => [...prev, data]);
+      await supabase.from('draft_leads').delete().eq('id', draft.id);
+      setDraftLeads(prev => prev.filter(x => x.id !== draft.id));
+      alert("Successfully promoted to Leads!");
+    } else {
+      alert("Error promoting lead: " + error.message);
+    }
+  };
+
   const saveJob = async (d) => {
     const payload = { ...d };
     if (payload.date === "") payload.date = null;
@@ -894,6 +941,13 @@ export default function App() {
 
             {tab === "pipeline" && <>
 
+
+            <div style={{ display: "flex", gap: 10, marginBottom: 15 }}>
+              <button className={`btn btn-sm ${!showDrafts ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setShowDrafts(false)}>{t.pipeline}</button>
+              <button className={`btn btn-sm ${showDrafts ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setShowDrafts(true)}>{t.drafts}</button>
+            </div>
+
+
               <button className="btn btn-ghost btn-sm" onClick={() => setModal({ type: "lead_types", data: null })}>Manage Types</button>
 
               <button className="btn btn-ghost btn-sm" onClick={() => setModal({ type: "messages", data: null })}>{t.btn_scripts}</button>
@@ -952,6 +1006,7 @@ export default function App() {
               </div>
 
             )}
+            )}
 
             <div className="filters">
 
@@ -985,6 +1040,44 @@ export default function App() {
             </div>
 
 
+
+            
+            {showDrafts ? (
+              <div className="table-wrap">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>{t.th_company}</th>
+                      <th>Website</th>
+                      <th>{t.lbl_notes}</th>
+                      <th>{t.th_status}</th>
+                      <th>{t.th_actions}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {draftLeads.length === 0 && <tr><td colSpan={5}><div className="empty">No drafts yet. Start researching!</div></td></tr>}
+                    {draftLeads.map(d => (
+                      <tr key={d.id}>
+                        <td><strong>{d.company}</strong></td>
+                        <td><a href={d.website} target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent)" }}>{d.website}</a></td>
+                        <td style={{ fontSize: 11, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.notes}</td>
+                        <td><span className="badge badge-custom">{d.status}</span></td>
+                        <td>
+                          <div style={{ display: "flex", gap: 5 }}>
+                            <button className="btn btn-ghost btn-sm" onClick={() => setModal({ type: "draft", data: d })}>{t.edit}</button>
+                            <button className="btn btn-ghost btn-sm" style={{ color: "var(--won)" }} onClick={() => promoteToLead(d)}>{t.promote}</button>
+                            <button className="btn btn-ghost btn-sm" style={{ color: "var(--danger)" }} onClick={() => deleteDraftLead(d.id)}>{t.delete}</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div style={{ marginTop: 20 }}>
+                  <button className="btn btn-primary" onClick={() => setModal({ type: "draft", data: null })}>{t.add_draft}</button>
+                </div>
+              </div>
+            ) : (
 
             {viewMode === "table" ? (
 
@@ -1664,6 +1757,7 @@ export default function App() {
 
             {modal.type === "job" && <JobModal t={t} data={modal.data} onSave={saveJob} onClose={() => setModal(null)} />}
 
+            {modal.type === "draft" && <DraftModal t={t} data={modal.data} onSave={saveDraftLead} onClose={() => setModal(null)} />}
             {modal.type === "messages" && <MessagesModal t={t} customMessages={customMessages} setCustomMessages={setCustomMessages} onClose={() => setModal(null)} />}
             {modal.type === "db_settings" && <DbSettingsModal onClose={() => setModal(null)} />}
 
@@ -3009,6 +3103,30 @@ function DbSettingsModal({ onClose }) {
         <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
         <button className="btn btn-primary" onClick={handleSave}>Save & Reload</button>
       </div>
+    </div>
+  </>;
+}
+
+
+function DraftModal({ t, data, onSave, onClose }) {
+  const [f, setF] = useState(data || { company: "", website: "", notes: "", status: "Researching" });
+  const s = (k, v) => setF(p => ({ ...p, [k]: v }));
+  return <>
+    <div className="modal-title">{data ? t.edit : t.add_draft}</div>
+    <div className="form-group"><label className="form-label">{t.th_company}</label><input className="form-input" value={f.company} onChange={e => s("company", e.target.value)} /></div>
+    <div className="form-group"><label className="form-label">Website</label><input className="form-input" value={f.website} onChange={e => s("website", e.target.value)} placeholder="https://..." /></div>
+    <div className="form-group"><label className="form-label">{t.lbl_notes}</label><textarea className="form-input" style={{ minHeight: 100 }} value={f.notes} onChange={e => s("notes", e.target.value)} /></div>
+    <div className="form-group">
+      <label className="form-label">{t.th_status}</label>
+      <select className="form-select" value={f.status} onChange={e => s("status", e.target.value)}>
+        <option value="Researching">Researching</option>
+        <option value="Ready to Contact">Ready to Contact</option>
+        <option value="Hold">Hold</option>
+      </select>
+    </div>
+    <div className="modal-footer">
+      <button className="btn btn-ghost" onClick={onClose}>{t.cancel}</button>
+      <button className="btn btn-primary" onClick={() => onSave(f)}>{t.save}</button>
     </div>
   </>;
 }
