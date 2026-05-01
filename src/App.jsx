@@ -451,11 +451,23 @@ export default function App() {
 
   React.useEffect(() => {
     if (!session) return;
+    
+    // Load Types
     supabase.from('project_types').select('*').then(({ data, error }) => {
       if (!error && data && data.length > 0) {
         setCustomProjectTypes(data.map(d => d.key));
+      }
+    });
+
+    // Load Phases from global_project_phases
+    supabase.from('global_project_phases').select('*').order('sort_order', { ascending: true }).then(({ data, error }) => {
+      if (!error && data) {
         const phasesObj = {};
-        data.forEach(d => { phasesObj[d.key] = d.phases || []; });
+        data.forEach(d => {
+          const type = d.project_type || 'VFX';
+          if (!phasesObj[type]) phasesObj[type] = [];
+          phasesObj[type].push(d.label_en);
+        });
         setCustomProjectPhases(phasesObj);
       }
     });
@@ -2799,14 +2811,24 @@ function ProjectTypesManagerModal({ t, lang, customProjectTypes, setCustomProjec
       setLoading(true);
       const phases = ["Concept", "Delivery"];
       
-      const { error } = await supabase.from('project_types').insert([{ key: typeKey, label_en: typeKey, label_pt: typeKey, phases }]);
+      // 1. Insert Type
+      const { error: typeErr } = await supabase.from('project_types').insert([{ key: typeKey, label_en: typeKey, label_pt: typeKey }]);
       
-      if (!error) {
+      if (!typeErr) {
+        // 2. Insert Default Phases into global_project_phases
+        const phaseRows = phases.map((p, idx) => ({
+          label_en: p,
+          label_pt: p,
+          project_type: typeKey,
+          sort_order: idx
+        }));
+        await supabase.from('global_project_phases').insert(phaseRows);
+
         setCustomProjectTypes([...customProjectTypes, typeKey]);
         setCustomProjectPhases({ ...customProjectPhases, [typeKey]: phases });
         setNewType("");
       } else {
-        alert("Supabase Error: " + error.message);
+        alert("Supabase Error: " + typeErr.message);
       }
       setLoading(false);
     }
@@ -2815,16 +2837,17 @@ function ProjectTypesManagerModal({ t, lang, customProjectTypes, setCustomProjec
   const deleteType = async (type) => {
     if (window.confirm("Delete project type: " + type + "?")) {
       setLoading(true);
-      const { error } = await supabase.from('project_types').delete().eq('key', type);
+      // Delete type
+      const { error: typeErr } = await supabase.from('project_types').delete().eq('key', type);
+      // Delete phases
+      await supabase.from('global_project_phases').delete().eq('project_type', type);
       
-      if (!error) {
+      if (!typeErr) {
         setCustomProjectTypes(customProjectTypes.filter(t => t !== type));
         const newPhases = { ...customProjectPhases };
         delete newPhases[type];
         setCustomProjectPhases(newPhases);
         if (selectedType === type) setSelectedType(customProjectTypes.find(t => t !== type) || "");
-      } else {
-        alert("Supabase Error: " + error.message);
       }
       setLoading(false);
     }
@@ -2836,13 +2859,19 @@ function ProjectTypesManagerModal({ t, lang, customProjectTypes, setCustomProjec
       const phases = customProjectPhases[selectedType] || [];
       const updatedPhases = [...phases, newPhase.trim()];
       
-      const { error } = await supabase.from('project_types').update({ phases: updatedPhases }).eq('key', selectedType);
+      // Insert new phase into global_project_phases
+      const { error } = await supabase.from('global_project_phases').insert([{
+        label_en: newPhase.trim(),
+        label_pt: newPhase.trim(),
+        project_type: selectedType,
+        sort_order: phases.length
+      }]);
       
       if (!error) {
         setCustomProjectPhases({ ...customProjectPhases, [selectedType]: updatedPhases });
         setNewPhase("");
       } else {
-        alert("Supabase Error: " + error.message);
+        alert("Supabase Error: " + error.message + "\n\nDid you run the SQL script to add the project_type column?");
       }
       setLoading(false);
     }
@@ -2852,11 +2881,17 @@ function ProjectTypesManagerModal({ t, lang, customProjectTypes, setCustomProjec
     if (selectedType) {
       setLoading(true);
       const phases = [...(customProjectPhases[selectedType] || [])];
+      const phaseName = phases[idx];
       phases.splice(idx, 1);
       
-      const { error } = await supabase.from('project_types').update({ phases }).eq('key', selectedType);
+      // Delete from global_project_phases
+      const { error } = await supabase.from('global_project_phases').delete().eq('project_type', selectedType).eq('label_en', phaseName);
       
       if (!error) {
+        // Re-index remaining phases in DB
+        for (let i = 0; i < phases.length; i++) {
+          await supabase.from('global_project_phases').update({ sort_order: i }).eq('project_type', selectedType).eq('label_en', phases[i]);
+        }
         setCustomProjectPhases({ ...customProjectPhases, [selectedType]: phases });
       } else {
         alert("Supabase Error: " + error.message);
@@ -2869,18 +2904,19 @@ function ProjectTypesManagerModal({ t, lang, customProjectTypes, setCustomProjec
     if (!selectedType) return;
     const phases = [...(customProjectPhases[selectedType] || [])];
     if (idx + dir < 0 || idx + dir >= phases.length) return;
-    const temp = phases[idx];
-    phases[idx] = phases[idx + dir];
-    phases[idx + dir] = temp;
+    
+    const p1 = phases[idx];
+    const p2 = phases[idx + dir];
+    
+    phases[idx] = p2;
+    phases[idx + dir] = p1;
     
     setLoading(true);
-    const { error } = await supabase.from('project_types').update({ phases }).eq('key', selectedType);
+    // Update sort_orders in DB
+    await supabase.from('global_project_phases').update({ sort_order: idx }).eq('project_type', selectedType).eq('label_en', p2);
+    await supabase.from('global_project_phases').update({ sort_order: idx + dir }).eq('project_type', selectedType).eq('label_en', p1);
     
-    if (!error) {
-      setCustomProjectPhases({ ...customProjectPhases, [selectedType]: phases });
-    } else {
-      alert("Supabase Error: " + error.message);
-    }
+    setCustomProjectPhases({ ...customProjectPhases, [selectedType]: phases });
     setLoading(false);
   };
 
