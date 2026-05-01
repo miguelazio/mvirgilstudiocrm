@@ -601,6 +601,7 @@ export default function App() {
       supabase.from('content_calendar').select('*').then(({ data }) => data && setContent(data));
       supabase.from('jobs').select('*').then(({ data }) => data && setJobs(data));
       supabase.from('custom_messages').select('*').then(({ data }) => data && setCustomMessages(data));
+      supabase.from('draft_leads').select('*').then(({ data }) => data && setDraftLeads(data));
       supabase.from('leads_type').select('*').then(({ data, error }) => { if (!error && data) setDbCustomTypes(data.sort((a, b) => a.label.localeCompare(b.label))) });
       supabase.from('vault_categories').select('*').then(({ data }) => data && setDbVaultCategories(data.sort((a, b) => a.label_en.localeCompare(b.label_en))));
     }
@@ -726,13 +727,23 @@ export default function App() {
     setModal(null);
   };
 
-  const saveDraftLead = async (d) => {
+    const saveDraftLead = async (d) => {
     const payload = { ...d };
     if (d.id) {
       const { data, error } = await supabase.from('draft_leads').update(payload).eq('id', d.id).select().single();
+      if (error) {
+        console.error('saveDraftLead update error:', error);
+        alert(`Error: ${error.message}`);
+        return;
+      }
       if (data) setDraftLeads(prev => prev.map(x => x.id === d.id ? data : x));
     } else {
       const { data, error } = await supabase.from('draft_leads').insert([payload]).select().single();
+      if (error) {
+        console.error('saveDraftLead insert error:', error);
+        alert(`Error: ${error.message}`);
+        return;
+      }
       if (data) setDraftLeads(prev => [data, ...prev]);
     }
     setModal(null);
