@@ -1006,7 +1006,6 @@ export default function App() {
               </div>
 
             )}
-            )}
 
             <div className="filters">
 
@@ -1077,9 +1076,7 @@ export default function App() {
                   <button className="btn btn-primary" onClick={() => setModal({ type: "draft", data: null })}>{t.add_draft}</button>
                 </div>
               </div>
-            ) : (
-
-            {viewMode === "table" ? (
+            ) : viewMode === "table" ? (
 
               <div className="table-wrap">
 
