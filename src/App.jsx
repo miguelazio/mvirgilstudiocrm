@@ -10,7 +10,9 @@ import "./dynamic.css";
 // ── Fonts ────────────────────────────────────────────────────────────────────
 
 const fontLink = document.createElement("link");
-fontLink.href = "https://fonts.googleapis.com/css2?family=Noto+Serif:wght@400;700&family=Space+Grotesk:wght@400;600;700&family=Inter:wght@400;500;600&display=swap";
+
+fontLink.href = "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Inter:wght@400;500;600&display=swap";
+
 fontLink.rel = "stylesheet";
 
 document.head.appendChild(fontLink);
@@ -634,9 +636,7 @@ export default function App() {
     setLeads(p => p.map(l => (l.type_key === 4 && l.custom_type === typeLabel) ? { ...l, type_key: 0, custom_type: "" } : l));
   };
   const saveProject = async (d) => {
-    // Ensure ID is treated correctly (Supabase often uses UUIDs or Ints)
-    const projectId = d.id;
-    
+    // Only send columns that exist in the DB
     const payload = {
       name: d.name,
       client: d.client,
@@ -651,21 +651,19 @@ export default function App() {
       customTasks: d.customTasks || {},
       customPhases: d.customPhases || null,
     };
-
-    if (projectId) {
-      // Use the existing ID for update. Supabase will handle UUID vs Int if the input matches.
-      const { data, error } = await supabase.from('projects').update(payload).eq('id', projectId).select().single();
+    if (d.id) {
+      const { data, error } = await supabase.from('projects').update(payload).eq('id', d.id).select().single();
       if (error) {
         console.error('saveProject update error:', error);
-        alert(`Supabase Error: ${error.message}`);
+        alert(`Supabase Error: ${error.message}\n\nPlease ensure you have added "customTasks" and "customPhases" as JSONB columns in your 'projects' table!`);
         return;
       }
-      if (data) setProjects(p => p.map(x => x.id === projectId ? data : x));
+      if (data) setProjects(p => p.map(x => x.id === d.id ? data : x));
     } else {
       const { data, error } = await supabase.from('projects').insert([payload]).select().single();
       if (error) {
         console.error('saveProject insert error:', error);
-        alert(`Supabase Error: ${error.message}`);
+        alert(`Supabase Error: ${error.message}\n\nPlease ensure you have added "customTasks" and "customPhases" as JSONB columns in your 'projects' table!`);
         return;
       }
       if (data) setProjects(p => [...p, data]);
