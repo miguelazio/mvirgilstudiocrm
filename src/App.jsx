@@ -1803,6 +1803,7 @@ export default function App() {
             {modal.type === "job" && <JobModal t={t} data={modal.data} onSave={saveJob} onClose={() => setModal(null)} />}
 
             {modal.type === "messages" && <MessagesModal t={t} customMessages={customMessages} setCustomMessages={setCustomMessages} onClose={() => setModal(null)} />}
+            {modal.type === "db_settings" && <DbSettingsModal onClose={() => setModal(null)} />}
 
             {modal.type === "lead_types" && <LeadTypesModal dbCustomTypes={dbCustomTypes} customLeadTypes={customLeadTypes} allTypes={allTypes} onDeleteCustomType={deleteCustomType} onReload={reloadLeadTypes} onClose={() => setModal(null)} />}
 
