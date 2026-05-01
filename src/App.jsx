@@ -963,10 +963,12 @@ export default function App() {
             {tab === "pipeline" && <>
 
 
-            <div style={{ display: "flex", gap: 10, marginBottom: 15 }}>
-              <button className={`btn btn-sm ${!showDrafts ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setShowDrafts(false)}>{t.pipeline}</button>
-              <button className={`btn btn-sm ${showDrafts ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setShowDrafts(true)}>{t.drafts}</button>
-            </div>
+            
+              <div className="btn-group" style={{ display: "flex", gap: 10, marginRight: 20, borderRight: "1px solid var(--border)", paddingRight: 20 }}>
+                <button className={`btn btn-sm ${!showDrafts ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setShowDrafts(false)}>{t.pipeline}</button>
+                <button className={`btn btn-sm ${showDrafts ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setShowDrafts(true)}>{t.drafts}</button>
+              </div>
+
 
 
               <button className="btn btn-ghost btn-sm" onClick={() => setModal({ type: "lead_types", data: null })}>Manage Types</button>
