@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import Auth from "./Auth";
 import CreateUser from "./CreateUser";
 import { supabase } from "./supabaseClient";
+import * as XLSX from "xlsx";
 
 import "./dynamic.css";
 
