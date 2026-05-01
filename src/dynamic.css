@@ -76,11 +76,11 @@ body { background: var(--bg); }
   background: linear-gradient(180deg, var(--accent-glow) 0%, transparent 40%, transparent 60%, var(--accent-glow) 100%);
 }
 .sidebar-logo {
-  padding: 0 20px 20px; font-size: 22px; font-weight: 800; letter-spacing: -0.5px;
-  color: var(--accent); border-bottom: 1px solid var(--border); margin-bottom: 12px;
-  text-shadow: 0 0 20px var(--accent-glow);
+  padding: 0 20px 20px;
+  color: var(--accent);
   font-family: var(--font-head);
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex;
+  flex-direction: column;
 }
 .sidebar-close-btn {
   display: none; background: transparent; border: none; color: var(--muted);

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import logo from "../assets/mvfx_logo.svg";
 import Auth from "./Auth";
 import CreateUser from "./CreateUser";
 import { supabase, updateSupabaseConfig, resetSupabaseConfig } from "./supabaseClient";
