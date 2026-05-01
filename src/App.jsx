@@ -185,6 +185,10 @@ const T = {
     lbl_associated_project: "Associated Project",
 
     none: "None",
+    manage_types_phases: "Manage Project Types & Phases",
+    lbl_project_types: "Project Types",
+    lbl_manage_phases: "Manage Phases",
+
 
   },
 
@@ -312,7 +316,11 @@ const T = {
     vault_url_placeholder: "https://…", vault_url_name: "Nome do link", vault_add: "Adicionar",
     vault_type_file: "📁 Ficheiro", vault_type_url: "🔗 URL",
     vault_sync: "↻ Sincronizar Drive", vault_syncing: "A sincronizar…", vault_synced: "Sincronizado!",
-    vault_categories: { Boilerplates: "Boilerplates", MoneyShots: "Money Shots", CaseStudies: "Estudos de Caso", Contracts: "Contratos", Renders: "Renders", References: "Referências", Other: "Outros" },
+    vault_categories: { Boilerplates: "Boilerplates", MoneyShots: "Money Shots", CaseStudies: "Estudos de Caso", Contracts: "Contratos", Renders: "Renders", References: "Referências", Other: "Outros"     none: "Nenhum",
+    manage_types_phases: "Gerir Tipos e Etapas de Projeto",
+    lbl_project_types: "Tipos de Projeto",
+    lbl_manage_phases: "Gerir Etapas",
+  },
     vault_edit_item: "Editar Item",
     vault_manage_categories: "Gerir Categorias",
 
@@ -3050,7 +3058,7 @@ function ProjectTypesManagerModal({ t, lang, customProjectTypes, setCustomProjec
   };
 
   return <>
-    <div className="modal-title">Manage Project Types & Phases</div>
+    <div className="modal-title">{t.manage_types_phases}</div>
     <div style={{ display: "flex", gap: 10, marginBottom: 15 }}>
       <button className={`btn btn-sm ${activeTab === 'types' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setActiveTab('types')}>Project Types</button>
       <button className={`btn btn-sm ${activeTab === 'phases' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setActiveTab('phases')}>Manage Phases</button>
