@@ -899,7 +899,7 @@ export default function App() {
           );
         })}
 
-        <div className="lang-switcher" style={{ margin: "0 16px", marginBottom: "10px" }}>
+        <div className="lang-switcher" style={{ margin: "0 16px", marginBottom: "10px", marginTop: "40px" }}>
           <button className="lang-btn" onClick={downloadFullBackup} disabled={backupLoading} style={{ width: "100%", justifyContent: "center", color: "var(--accent)" }}>
             {backupLoading ? "..." : "⬇ Backup (.xlsx)"}
           </button>
