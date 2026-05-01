@@ -727,26 +727,36 @@ export default function App() {
     setModal(null);
   };
 
-    const saveDraftLead = async (d) => {
-    const payload = { ...d };
-    if (d.id) {
-      const { data, error } = await supabase.from('draft_leads').update(payload).eq('id', d.id).select().single();
-      if (error) {
-        console.error('saveDraftLead update error:', error);
-        alert(`Error: ${error.message}`);
-        return;
-      }
-      if (data) setDraftLeads(prev => prev.map(x => x.id === d.id ? data : x));
-    } else {
-      const { data, error } = await supabase.from('draft_leads').insert([payload]).select().single();
-      if (error) {
-        console.error('saveDraftLead insert error:', error);
-        alert(`Error: ${error.message}`);
-        return;
-      }
-      if (data) setDraftLeads(prev => [data, ...prev]);
+      const saveDraftLead = async (d) => {
+    console.log('Attempting to save draft:', d);
+    if (!d.company || !d.company.trim()) {
+      alert("Company name is required!");
+      return;
     }
-    setModal(null);
+    const payload = { 
+      company: d.company.trim(),
+      website: d.website ? d.website.trim() : "",
+      notes: d.notes ? d.notes.trim() : "",
+      status: d.status || "Researching"
+    };
+    
+    try {
+      if (d.id) {
+        console.log('Updating existing draft:', d.id);
+        const { data, error } = await supabase.from('draft_leads').update(payload).eq('id', d.id).select().single();
+        if (error) throw error;
+        if (data) setDraftLeads(prev => prev.map(x => x.id === d.id ? data : x));
+      } else {
+        console.log('Inserting new draft...');
+        const { data, error } = await supabase.from('draft_leads').insert([payload]).select().single();
+        if (error) throw error;
+        if (data) setDraftLeads(prev => [data, ...prev]);
+      }
+      setModal(null);
+    } catch (err) {
+      console.error('saveDraftLead exception:', err);
+      alert(`Database Error: ${err.message || 'Unknown error'}`);
+    }
   };
 
   const deleteDraftLead = async (id) => {
