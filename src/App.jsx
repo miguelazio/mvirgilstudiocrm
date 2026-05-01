@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Auth from "./Auth";
 import CreateUser from "./CreateUser";
-import { supabase } from "./supabaseClient";
+import { supabase, updateSupabaseConfig, resetSupabaseConfig } from "./supabaseClient";
 import * as XLSX from "xlsx";
 
 import "./dynamic.css";
@@ -423,6 +423,63 @@ export default function App() {
     setSoftwareCatalog(prev => prev.filter(s => s.id !== swId));
   };
   const [backupLoading, setBackupLoading] = React.useState(false);
+  const [restoreLoading, setRestoreLoading] = React.useState(false);
+  const fileInputRef = React.useRef(null);
+
+  const handleRestoreClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!window.confirm("ARE YOU SURE? This will attempt to restore all data from the Excel file into your database. Existing rows with the same IDs will be updated.")) return;
+
+    setRestoreLoading(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = async (evt) => {
+        try {
+          const bstr = evt.target.result;
+          const wb = XLSX.read(bstr, { type: 'binary' });
+
+          for (const sheetName of wb.SheetNames) {
+            const ws = wb.Sheets[sheetName];
+            const data = XLSX.utils.sheet_to_json(ws);
+            if (data.length === 0 || (data.length === 1 && data[0].info === 'No data')) continue;
+
+            // Un-flatten JSON strings
+            const cleanData = data.map(row => {
+              const clean = {};
+              Object.entries(row).forEach(([k, v]) => {
+                if (typeof v === 'string' && (v.startsWith('{') || v.startsWith('['))) {
+                  try { clean[k] = JSON.parse(v); } catch (e) { clean[k] = v; }
+                } else {
+                  clean[k] = v;
+                }
+              });
+              return clean;
+            });
+
+            // Upsert into table
+            const tableName = sheetName; // sheetName was derived from table name
+            const { error } = await supabase.from(tableName).upsert(cleanData);
+            if (error) console.error("Restore error in table " + tableName + ":", error.message);
+          }
+          alert("Restore complete! Refreshing app...");
+          window.location.reload();
+        } catch (err) {
+          alert("Error parsing file: " + err.message);
+        }
+      };
+      reader.readAsBinaryString(file);
+    } catch (err) {
+      alert("Restore failed: " + err.message);
+    }
+    setRestoreLoading(false);
+  };
+
   const downloadFullBackup = async () => {
     setBackupLoading(true);
     try {
@@ -904,6 +961,13 @@ export default function App() {
             {backupLoading ? "..." : "⬇ Backup (.xlsx)"}
           </button>
         </div>
+        <div className="lang-switcher" style={{ margin: "0 16px", marginBottom: "10px" }}>
+          <input type="file" ref={fileInputRef} onChange={handleFileChange} style={{ display: 'none' }} accept=".xlsx, .xls" />
+          <button className="lang-btn" onClick={handleRestoreClick} disabled={restoreLoading} style={{ width: "100%", justifyContent: "center", color: "var(--accent)" }}>
+            {restoreLoading ? "..." : "⬆ Restore (.xlsx)"}
+          </button>
+        </div>
+
         {/* ── Theme Switcher ── */}
 
         <div className="lang-switcher" style={{ marginBottom: "10px", marginTop: "auto" }}>
@@ -3040,6 +3104,42 @@ function ProjectTypesManagerModal({ t, lang, customProjectTypes, setCustomProjec
 
     <div className="modal-footer" style={{ marginTop: 24 }}>
       <button className="btn btn-ghost" onClick={onClose} disabled={loading}>{t.cancel || "Close"}</button>
+    </div>
+  </>;
+}
+
+function DbSettingsModal({ onClose }) {
+  const [url, setUrl] = React.useState(localStorage.getItem('supabase_url') || "https://ayfxscdfcyowyeaktnnn.supabase.co");
+  const [key, setKey] = React.useState(localStorage.getItem('supabase_key') || "sb_publishable_0j-KuWXh1xwik2RV53jJXA_IqP_3gq2");
+
+  const handleSave = () => {
+    if (window.confirm("Switch database? The app will reload.")) {
+      updateSupabaseConfig(url, key);
+    }
+  };
+
+  const handleReset = () => {
+    if (window.confirm("Reset to default database?")) {
+      resetSupabaseConfig();
+    }
+  };
+
+  return <>
+    <div className="modal-title">Database Settings</div>
+    <div className="form-group">
+      <label className="form-label">Supabase URL</label>
+      <input className="form-input" value={url} onChange={e => setUrl(e.target.value)} placeholder="https://your-project.supabase.co" />
+    </div>
+    <div className="form-group">
+      <label className="form-label">Anon Key</label>
+      <input className="form-input" value={key} onChange={e => setKey(e.target.value)} placeholder="your-anon-key" />
+    </div>
+    <div className="modal-footer" style={{ display: "flex", justifyContent: "space-between", marginTop: 24 }}>
+      <button className="btn btn-ghost" style={{ color: "var(--danger)" }} onClick={handleReset}>Reset to Default</button>
+      <div style={{ display: "flex", gap: 10 }}>
+        <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+        <button className="btn btn-primary" onClick={handleSave}>Save & Reload</button>
+      </div>
     </div>
   </>;
 }
