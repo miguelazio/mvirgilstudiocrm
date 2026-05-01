@@ -899,6 +899,11 @@ export default function App() {
           );
         })}
 
+        <div className="lang-switcher" style={{ margin: "0 16px", marginBottom: "10px" }}>
+          <button className="lang-btn" onClick={downloadFullBackup} disabled={backupLoading} style={{ width: "100%", justifyContent: "center", color: "var(--accent)" }}>
+            {backupLoading ? "..." : "⬇ Backup (.xlsx)"}
+          </button>
+        </div>
         {/* ── Theme Switcher ── */}
 
         <div className="lang-switcher" style={{ marginBottom: "10px", marginTop: "auto" }}>
@@ -931,11 +936,7 @@ export default function App() {
 
         <div className="lang-switcher" style={{ margin: "0 16px", marginBottom: "24px" }}>
           
-        <div className="lang-switcher" style={{ margin: "0 16px", marginBottom: "10px" }}>
-          <button className="lang-btn" onClick={downloadFullBackup} disabled={backupLoading} style={{ width: "100%", justifyContent: "center", color: "var(--accent)" }}>
-            {backupLoading ? "..." : "⬇ Backup (.xlsx)"}
-          </button>
-        </div>
+        
 <button className="lang-btn" onClick={() => supabase.auth.signOut()} style={{ width: "100%", justifyContent: "center", color: "var(--accent)" }}>
             {t.logout || "Logout"}
           </button>
