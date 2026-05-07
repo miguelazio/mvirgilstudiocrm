@@ -116,6 +116,8 @@ const T = {
     manage_types_phases: "Manage Project Types & Phases",
     lbl_project_types: "Project Types",
     lbl_manage_phases: "Manage Phases",
+    import_xlsx: "📥 Import (.xlsx)",
+    import_confirm: "This will merge data from the Excel file into your database. Existing entries with the same IDs will be updated. New entries will be added. Continue?",
   },
   pt: {
     pipeline: "Pipeline B2B", projects: "Projetos Ativos", vault: "MateriaVault",
@@ -209,6 +211,8 @@ const T = {
     manage_types_phases: "Gerir Tipos e Etapas de Projeto",
     lbl_project_types: "Tipos de Projeto",
     lbl_manage_phases: "Gerir Etapas",
+    import_xlsx: "📥 Import (.xlsx)",
+    import_confirm: "This will merge data from the Excel file into your database. Existing entries with the same IDs will be updated. New entries will be added. Continue?",
   }
 };
 
@@ -263,7 +267,7 @@ export default function App() {
   const [lang, setLang] = React.useState("pt");
   const [theme, setTheme] = React.useState("dark");
   const [tab, setTab] = React.useState("pipeline");
-  const [showDrafts, setShowDrafts] = React.useState(false);
+  const [pipelineSubTab, setPipelineSubTab] = React.useState("pipeline"); // "pipeline", "drafts", "analytics"
   const [viewMode, setViewMode] = React.useState("table");
   const [modal, setModal] = React.useState(null);
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
@@ -294,7 +298,9 @@ export default function App() {
   };
   const [backupLoading, setBackupLoading] = React.useState(false);
   const [restoreLoading, setRestoreLoading] = React.useState(false);
+  const [importLoading, setImportLoading] = React.useState(false);
   const fileInputRef = React.useRef(null);
+  const importFileInputRef = React.useRef(null);
 
   const handleRestoreClick = () => {
     fileInputRef.current?.click();
@@ -350,6 +356,54 @@ export default function App() {
     setRestoreLoading(false);
   };
 
+  const handleImportFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!window.confirm(t.import_confirm)) return;
+
+    setImportLoading(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = async (evt) => {
+        try {
+          const bstr = evt.target.result;
+          const wb = XLSX.read(bstr, { type: 'binary' });
+
+          for (const sheetName of wb.SheetNames) {
+            const ws = wb.Sheets[sheetName];
+            const data = XLSX.utils.sheet_to_json(ws);
+            if (data.length === 0 || (data.length === 1 && data[0].info === 'No data')) continue;
+
+            const cleanData = data.map(row => {
+              const clean = {};
+              Object.entries(row).forEach(([k, v]) => {
+                if (typeof v === 'string' && (v.startsWith('{') || v.startsWith('['))) {
+                  try { clean[k] = JSON.parse(v); } catch (e) { clean[k] = v; }
+                } else {
+                  clean[k] = v;
+                }
+              });
+              return clean;
+            });
+
+            const tableName = sheetName;
+            const { error } = await supabase.from(tableName).upsert(cleanData);
+            if (error) console.error("Import error in table " + tableName + ":", error.message);
+          }
+          alert("Import complete! Data has been merged.");
+          window.location.reload();
+        } catch (err) {
+          alert("Error parsing file: " + err.message);
+        }
+      };
+      reader.readAsBinaryString(file);
+    } catch (err) {
+      alert("Import failed: " + err.message);
+    }
+    setImportLoading(false);
+  };
+
   const downloadFullBackup = async () => {
     setBackupLoading(true);
     try {
@@ -383,7 +437,7 @@ export default function App() {
             const ws = XLSX.utils.json_to_sheet(flatData.length > 0 ? flatData : [{ info: 'No data' }]);
             XLSX.utils.book_append_sheet(wb, ws, t.name.substring(0, 31));
           }
-        } catch (e) {}
+        } catch (e) { }
       }
       const now = new Date();
       XLSX.writeFile(wb, "MateriaVolume_Backup_" + now.toISOString().slice(0, 10) + ".xlsx");
@@ -430,7 +484,7 @@ export default function App() {
 
   React.useEffect(() => {
     if (!session) return;
-    
+
     // Load Types
     supabase.from('project_types').select('*').then(({ data, error }) => {
       if (!error && data && data.length > 0) {
@@ -728,19 +782,19 @@ export default function App() {
     setModal(null);
   };
 
-      const saveDraftLead = async (d) => {
+  const saveDraftLead = async (d) => {
     console.log('Attempting to save draft:', d);
     if (!d.company || !d.company.trim()) {
       alert("Company name is required!");
       return;
     }
-    const payload = { 
+    const payload = {
       company: d.company.trim(),
       website: d.website ? d.website.trim() : "",
       notes: d.notes ? d.notes.trim() : "",
       status: d.status || "Researching"
     };
-    
+
     try {
       if (d.id) {
         console.log('Updating existing draft:', d.id);
@@ -905,6 +959,12 @@ export default function App() {
           </button>
         </div>
         <div className="lang-switcher" style={{ margin: "0 16px", marginBottom: "10px" }}>
+          <input type="file" ref={importFileInputRef} onChange={handleImportFileChange} style={{ display: 'none' }} accept=".xlsx, .xls" />
+          <button className="lang-btn" onClick={() => importFileInputRef.current?.click()} disabled={importLoading} style={{ width: "100%", justifyContent: "center", color: "var(--accent)" }}>
+            {importLoading ? "..." : t.import_xlsx || "📥 Import (.xlsx)"}
+          </button>
+        </div>
+        <div className="lang-switcher" style={{ margin: "0 16px", marginBottom: "10px" }}>
           <button className="lang-btn" onClick={() => setModal({ type: "db_settings", data: null })} style={{ width: "100%", justifyContent: "center", color: "var(--accent)" }}>
             ⚙️ DB Settings
           </button>
@@ -942,9 +1002,9 @@ export default function App() {
         </div>
 
         <div className="lang-switcher" style={{ margin: "0 16px", marginBottom: "24px" }}>
-          
-        
-<button className="lang-btn" onClick={() => supabase.auth.signOut()} style={{ width: "100%", justifyContent: "center", color: "var(--accent)" }}>
+
+
+          <button className="lang-btn" onClick={() => supabase.auth.signOut()} style={{ width: "100%", justifyContent: "center", color: "var(--accent)" }}>
             {t.logout || "Logout"}
           </button>
         </div>
@@ -970,10 +1030,11 @@ export default function App() {
             {tab === "pipeline" && <>
 
 
-            
+
               <div className="btn-group" style={{ display: "flex", gap: 10, marginRight: 20, borderRight: "1px solid var(--border)", paddingRight: 20 }}>
-                <button className={`btn btn-sm ${!showDrafts ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setShowDrafts(false)}>{t.pipeline}</button>
-                <button className={`btn btn-sm ${showDrafts ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setShowDrafts(true)}>{t.drafts}</button>
+                <button className={`btn btn-sm ${pipelineSubTab === 'pipeline' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setPipelineSubTab("pipeline")}>{t.pipeline}</button>
+                <button className={`btn btn-sm ${pipelineSubTab === 'drafts' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setPipelineSubTab("drafts")}>{t.drafts}</button>
+                <button className={`btn btn-sm ${pipelineSubTab === 'analytics' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setPipelineSubTab("analytics")}>Analytics</button>
               </div>
 
 
@@ -1015,19 +1076,18 @@ export default function App() {
 
           {tab === "pipeline" && <>
 
-            <div className="stats-row">
+            {pipelineSubTab === "pipeline" && (
+              <div className="stats-row">
+                <div className="stat-card"><div className="stat-label">{t.total_leads}</div><div className="stat-value">{stats.total}</div><div className="stat-sub">{t.in_funnel}</div></div>
+                <div className="stat-card"><div className="stat-label">{t.meetings}</div><div className="stat-value">{stats.meetings}</div><div className="stat-sub">{t.sched_above}</div></div>
+                <div className="stat-card"><div className="stat-label">{t.won}</div><div className="stat-value" style={{ color: "var(--won)" }}>{stats.won}</div><div className="stat-sub">{t.closed_clients}</div></div>
+                <div className="stat-card"><div className="stat-label">{t.followups_due}</div><div className="stat-value" style={{ color: overdue.length ? "var(--danger)" : "var(--accent)" }}>{overdue.length}</div><div className="stat-sub">{t.overdue}</div></div>
+              </div>
+            )}
 
-              <div className="stat-card"><div className="stat-label">{t.total_leads}</div><div className="stat-value">{stats.total}</div><div className="stat-sub">{t.in_funnel}</div></div>
+            {pipelineSubTab === "analytics" && <PipelineCharts leads={leads} softwareCatalog={softwareCatalog} t={t} />}
 
-              <div className="stat-card"><div className="stat-label">{t.meetings}</div><div className="stat-value">{stats.meetings}</div><div className="stat-sub">{t.sched_above}</div></div>
-
-              <div className="stat-card"><div className="stat-label">{t.won}</div><div className="stat-value" style={{ color: "var(--won)" }}>{stats.won}</div><div className="stat-sub">{t.closed_clients}</div></div>
-
-              <div className="stat-card"><div className="stat-label">{t.followups_due}</div><div className="stat-value" style={{ color: overdue.length ? "var(--danger)" : "var(--accent)" }}>{overdue.length}</div><div className="stat-sub">{t.overdue}</div></div>
-
-            </div>
-
-            {overdue.length > 0 && (
+            {pipelineSubTab === "pipeline" && overdue.length > 0 && (
 
               <div className="alert-bar"><span className="alert-icon">⚡</span>
 
@@ -1037,7 +1097,10 @@ export default function App() {
 
             )}
 
-            <div className="filters">
+            {pipelineSubTab !== "analytics" && (
+              <>
+                <div className="filters">
+
 
               <button className={`filter-chip${filterStatus === "all" ? " active" : ""}`} onClick={() => setFilterStatus("all")}>{t.all}</button>
 
@@ -1066,12 +1129,11 @@ export default function App() {
                 <button key={ct} className={`filter-chip${filterType === `custom_${ct}` ? " active" : ""}`} onClick={() => setFilterType(filterType === `custom_${ct}` ? "all" : `custom_${ct}`)}>{ct}</button>
               ))}
 
-            </div>
+                </div>
+              </>
+            )}
 
-
-
-            
-            {showDrafts ? (
+            {pipelineSubTab === "drafts" ? (
               <div className="table-wrap">
                 <table className="table">
                   <thead>
@@ -1106,7 +1168,8 @@ export default function App() {
                   <button className="btn btn-primary" onClick={() => setModal({ type: "draft", data: null })}>{t.add_draft}</button>
                 </div>
               </div>
-            ) : viewMode === "table" ? (
+            ) : pipelineSubTab === "pipeline" ? (
+              viewMode === "table" ? (
 
               <div className="table-wrap">
 
@@ -1185,8 +1248,9 @@ export default function App() {
                 })}
 
               </div>
+              )
+            ) : null}
 
-            )}
 
           </>}
 
@@ -1209,7 +1273,7 @@ export default function App() {
             <div className="project-grid">
 
               {projects.map(p => {
-                
+
                 const prjPhases = p.customPhases || t.project_phases;
 
                 const totalTasks = prjPhases.reduce((sum, ph, pi) => sum + (p.customTasks?.[pi] ? p.customTasks[pi].length : (PHASE_DATA[lang][pi]?.tasks?.length || 0)), 0);
@@ -2182,20 +2246,20 @@ function ProjectModal({ t, lang, data, partners, softwareCatalog, customProjectT
     <div style={{ marginBottom: 16 }}>
       <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
         <span>{lang === 'pt' ? 'Etapas do Projeto' : 'Project Phases'}</span>
-        <select 
-          className="form-select" 
+        <select
+          className="form-select"
           style={{ fontSize: 10, padding: "2px 20px 2px 6px", width: "auto", height: "24px", minHeight: "24px", borderRadius: 4 }}
           value=""
           onChange={e => {
-             let val = e.target.value;
-             if (!val) return;
-             
-             // If user selects "custom", just add a placeholder phase name they can edit inline!
-             if (val === "custom") {
-                 val = lang === 'pt' ? 'Nova Etapa Customizada' : 'New Custom Phase';
-             }
-             
-             s('customPhases', [...projectPhases, val]);
+            let val = e.target.value;
+            if (!val) return;
+
+            // If user selects "custom", just add a placeholder phase name they can edit inline!
+            if (val === "custom") {
+              val = lang === 'pt' ? 'Nova Etapa Customizada' : 'New Custom Phase';
+            }
+
+            s('customPhases', [...projectPhases, val]);
           }}
         >
           <option value="">+ {lang === 'pt' ? 'Nova Etapa' : 'New Phase'}</option>
@@ -2208,17 +2272,17 @@ function ProjectModal({ t, lang, data, partners, softwareCatalog, customProjectT
       <div style={{ display: "flex", flexDirection: "column", gap: 6, background: "var(--bg)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: 8 }}>
         {projectPhases.map((phName, pi) => (
           <div key={pi} style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <span style={{ fontSize: 10, color: "var(--muted)", width: 14 }}>{pi+1}.</span>
+            <span style={{ fontSize: 10, color: "var(--muted)", width: 14 }}>{pi + 1}.</span>
             <input className="form-input" style={{ flex: 1, padding: "4px 8px", fontSize: 12, height: "auto" }} value={phName} onChange={e => {
-               const newArr = [...projectPhases];
-               newArr[pi] = e.target.value;
-               s('customPhases', newArr);
+              const newArr = [...projectPhases];
+              newArr[pi] = e.target.value;
+              s('customPhases', newArr);
             }} />
             <button className="btn btn-ghost" style={{ color: "var(--danger)", padding: "2px 6px", fontSize: 10 }} onClick={(e) => {
-               e.preventDefault();
-               const newArr = projectPhases.filter((_, i) => i !== pi);
-               s('customPhases', newArr);
-               if (f.phase >= newArr.length) s('phase', Math.max(0, newArr.length - 1));
+              e.preventDefault();
+              const newArr = projectPhases.filter((_, i) => i !== pi);
+              s('customPhases', newArr);
+              if (f.phase >= newArr.length) s('phase', Math.max(0, newArr.length - 1));
             }}>✕</button>
           </div>
         ))}
@@ -2766,7 +2830,7 @@ function LeadTypesModal({ dbCustomTypes, customLeadTypes, allTypes, onDeleteCust
       const { error } = await supabase.from('leads_type').update({ label: f.label.trim() }).eq('id', f.id);
       err = error;
     }
-    
+
     if (err) {
       alert(`Could not save type. Have you added the "label" column?\n\nError: ${err.message}`);
       return;
@@ -2806,7 +2870,7 @@ function LeadTypesModal({ dbCustomTypes, customLeadTypes, allTypes, onDeleteCust
           {allTypes.map((t, i) => (
             <div key={`basic_${i}`} className="script-item" style={{ opacity: 0.6 }}>
               <div className="script-info">
-                <div className="script-name">{t} <span style={{fontSize:10, fontWeight:"normal", marginLeft:6}}>(Default)</span></div>
+                <div className="script-name">{t} <span style={{ fontSize: 10, fontWeight: "normal", marginLeft: 6 }}>(Default)</span></div>
               </div>
             </div>
           ))}
@@ -2922,10 +2986,10 @@ function ProjectTypesManagerModal({ t, lang, customProjectTypes, setCustomProjec
     if (typeKey && !customProjectTypes.includes(typeKey)) {
       setLoading(true);
       const phases = ["Concept", "Delivery"];
-      
+
       // 1. Insert Type
       const { error: typeErr } = await supabase.from('project_types').insert([{ key: typeKey, label_en: typeKey, label_pt: typeKey }]);
-      
+
       if (!typeErr) {
         // 2. Insert Default Phases into global_project_phases
         const phaseRows = phases.map((p, idx) => ({
@@ -2953,7 +3017,7 @@ function ProjectTypesManagerModal({ t, lang, customProjectTypes, setCustomProjec
       const { error: typeErr } = await supabase.from('project_types').delete().eq('key', type);
       // Delete phases
       await supabase.from('global_project_phases').delete().eq('project_type', type);
-      
+
       if (!typeErr) {
         setCustomProjectTypes(customProjectTypes.filter(t => t !== type));
         const newPhases = { ...customProjectPhases };
@@ -2970,7 +3034,7 @@ function ProjectTypesManagerModal({ t, lang, customProjectTypes, setCustomProjec
       setLoading(true);
       const phases = customProjectPhases[selectedType] || [];
       const updatedPhases = [...phases, newPhase.trim()];
-      
+
       // Insert new phase into global_project_phases
       const { error } = await supabase.from('global_project_phases').insert([{
         label_en: newPhase.trim(),
@@ -2978,7 +3042,7 @@ function ProjectTypesManagerModal({ t, lang, customProjectTypes, setCustomProjec
         project_type: selectedType,
         sort_order: phases.length
       }]);
-      
+
       if (!error) {
         setCustomProjectPhases({ ...customProjectPhases, [selectedType]: updatedPhases });
         setNewPhase("");
@@ -2995,10 +3059,10 @@ function ProjectTypesManagerModal({ t, lang, customProjectTypes, setCustomProjec
       const phases = [...(customProjectPhases[selectedType] || [])];
       const phaseName = phases[idx];
       phases.splice(idx, 1);
-      
+
       // Delete from global_project_phases
       const { error } = await supabase.from('global_project_phases').delete().eq('project_type', selectedType).eq('label_en', phaseName);
-      
+
       if (!error) {
         // Re-index remaining phases in DB
         for (let i = 0; i < phases.length; i++) {
@@ -3016,18 +3080,18 @@ function ProjectTypesManagerModal({ t, lang, customProjectTypes, setCustomProjec
     if (!selectedType) return;
     const phases = [...(customProjectPhases[selectedType] || [])];
     if (idx + dir < 0 || idx + dir >= phases.length) return;
-    
+
     const p1 = phases[idx];
     const p2 = phases[idx + dir];
-    
+
     phases[idx] = p2;
     phases[idx + dir] = p1;
-    
+
     setLoading(true);
     // Update sort_orders in DB
     await supabase.from('global_project_phases').update({ sort_order: idx }).eq('project_type', selectedType).eq('label_en', p2);
     await supabase.from('global_project_phases').update({ sort_order: idx + dir }).eq('project_type', selectedType).eq('label_en', p1);
-    
+
     setCustomProjectPhases({ ...customProjectPhases, [selectedType]: phases });
     setLoading(false);
   };
@@ -3064,14 +3128,14 @@ function ProjectTypesManagerModal({ t, lang, customProjectTypes, setCustomProjec
             {customProjectTypes.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
         </div>
-        
+
         {selectedType && (
           <div style={{ marginTop: 16 }}>
             <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
               <input className="form-input" placeholder="New Phase Name..." value={newPhase} onChange={e => setNewPhase(e.target.value)} onKeyDown={e => e.key === 'Enter' && addPhase()} disabled={loading} />
               <button className="btn btn-primary" onClick={addPhase} disabled={loading}>{loading ? '...' : 'Add Phase'}</button>
             </div>
-            
+
             <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: "35vh", overflowY: "auto" }}>
               {(customProjectPhases[selectedType] || []).map((phase, idx, arr) => (
                 <div key={idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--surface)", padding: "8px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius)" }}>
@@ -3157,3 +3221,186 @@ function DraftModal({ t, data, onSave, onClose }) {
     </div>
   </>;
 }
+
+function PipelineCharts({ leads, softwareCatalog, t }) {
+  const SECTOR_META = {
+    "Agência de Eventos": { icon: "🎯", cls: "bar-event" },
+    "Event Agency": { icon: "🎯", cls: "bar-event" },
+    "Imobiliário de Luxo": { icon: "💎", cls: "bar-realestate" },
+    "Luxury Real Estate": { icon: "💎", cls: "bar-realestate" },
+    "Pós-Produção": { icon: "🎬", cls: "bar-post" },
+    "Post-Production": { icon: "🎬", cls: "bar-post" },
+    "Estúdio de Museografia": { icon: "🏛️", cls: "bar-museum" },
+    "Museography Studio": { icon: "🏛️", cls: "bar-museum" },
+  };
+
+  const STATUS_COLORS = [
+    "var(--muted)",      // 0: To Contact
+    "var(--accent2)",    // 1: 1st Email
+    "#ffd59c",           // 2: Awaiting Reply
+    "var(--accent)",     // 3: Meeting
+    "#9c27b0",           // 4: Proposal (Distinct Purple)
+    "var(--won)",        // 5: Won
+    "var(--danger)"      // 6: Lost
+  ];
+
+  const getSectorMeta = (label) => SECTOR_META[label] || { icon: "✨", cls: "bar-default" };
+
+  // 1. Sector & Status Correlation
+  const sectorData = {};
+  leads.forEach(l => {
+    let label = t.types[l.type_key];
+    if (l.type_key === 4) label = l.custom_type || "Other";
+    if (!label) label = "Other Sectors";
+    
+    if (!sectorData[label]) sectorData[label] = { total: 0, statuses: Array(7).fill(0), score: 0 };
+    sectorData[label].total++;
+    const s = l.status || 0;
+    sectorData[label].statuses[s]++;
+    
+    // Engagement Scoring for "Focus"
+    const weights = [5, 15, 30, 60, 80, 100, 0]; 
+    sectorData[label].score += weights[s];
+  });
+
+  const funnelCounts = Array(7).fill(0);
+  leads.forEach(l => funnelCounts[l.status || 0]++);
+
+  const totalLeads = leads.length || 1;
+  const sortedSectors = Object.entries(sectorData).sort((a, b) => b[1].score - a[1].score);
+
+  return (
+    <div className="charts-container" style={{ animation: "fadeIn 800ms ease-out", gridTemplateColumns: "1fr", gap: "32px" }}>
+      
+      {/* STRATEGIC FOCUS MATRIX */}
+      <div className="chart-card" style={{ padding: "32px" }}>
+        <div className="chart-title">
+          <span>Strategic Focus Matrix</span>
+          <span>Lead Density x Funnel Stage</span>
+        </div>
+        
+        <div style={{ overflowX: "auto", marginTop: "20px" }}>
+          <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: "8px", minWidth: "800px" }}>
+            <thead>
+              <tr>
+                <th style={{ textAlign: "left", fontSize: "10px", color: "var(--muted)", width: "200px" }}>SECTOR</th>
+                {t.funnel_stages.map((stage, i) => (
+                  <th key={i} style={{ fontSize: "9px", color: "var(--muted)", textAlign: "center", textTransform: "uppercase", width: "100px" }}>
+                    {stage.replace("Scheduled", "").replace("Sent", "")}
+                  </th>
+                ))}
+                <th style={{ textAlign: "right", fontSize: "10px", color: "var(--accent)", width: "80px" }}>FOCUS</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sortedSectors.map(([label, data], sIdx) => {
+                const meta = getSectorMeta(label);
+                return (
+                  <tr key={label} style={{ height: "40px" }}>
+                    <td style={{ fontSize: "12px", fontWeight: 700, color: "var(--text)" }}>
+                      <span style={{ marginRight: "8px" }}>{meta.icon}</span>
+                      {label}
+                    </td>
+                    {data.statuses.map((count, i) => {
+                      const maxInCol = Math.max(...Object.values(sectorData).map(d => d.statuses[i]));
+                      const intensity = count > 0 ? (0.1 + (count / (maxInCol || 1)) * 0.4) : 0.02;
+                      return (
+                        <td key={i} style={{ textAlign: "center" }}>
+                          <div style={{ 
+                            background: count > 0 ? STATUS_COLORS[i] : "rgba(255,255,255,0.02)",
+                            opacity: count > 0 ? 0.8 : 0.1,
+                            padding: "8px",
+                            borderRadius: "6px",
+                            fontSize: "13px",
+                            fontWeight: 800,
+                            color: count > 0 ? "#000" : "var(--muted)",
+                            boxShadow: count > 0 ? `0 4px 12px ${STATUS_COLORS[i]}33` : "none",
+                            transition: "all 0.3s ease",
+                            border: count > 0 ? `1px solid ${STATUS_COLORS[i]}` : "1px solid transparent"
+                          }}>
+                            {count || "·"}
+                          </div>
+                        </td>
+                      );
+                    })}
+                    <td style={{ textAlign: "right" }}>
+                       <div style={{ 
+                         fontSize: "11px", 
+                         fontWeight: 900, 
+                         color: sIdx === 0 ? "var(--accent)" : "var(--muted)",
+                         background: sIdx === 0 ? "var(--accent-dim)" : "transparent",
+                         padding: "4px 8px",
+                         borderRadius: "4px",
+                         display: "inline-block"
+                       }}>
+                         {Math.round(data.score / (data.total || 1))}
+                       </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        <div style={{ marginTop: "24px", display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+           <div style={{ display: "flex", gap: "16px" }}>
+             <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+               <div style={{ width: "10px", height: "10px", borderRadius: "2px", background: "var(--accent)" }} />
+               <span style={{ fontSize: "10px", color: "var(--muted)" }}>Active Momentum</span>
+             </div>
+             <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+               <div style={{ width: "10px", height: "10px", borderRadius: "2px", background: "var(--won)" }} />
+               <span style={{ fontSize: "10px", color: "var(--muted)" }}>Converted Value</span>
+             </div>
+           </div>
+           {sortedSectors[0] && (
+             <div style={{ textAlign: "right", animation: "pulse 2s infinite" }}>
+               <div style={{ fontSize: "9px", fontWeight: 800, color: "var(--accent)", letterSpacing: "1px" }}>🔥 PRIORITY FOCUS</div>
+               <div style={{ fontSize: "14px", fontWeight: 900 }}>{sortedSectors[0][0]}</div>
+             </div>
+           )}
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
+          {/* FUNNEL VELOCITY (MINI) */}
+          <div className="chart-card">
+            <div className="chart-title"><span>Pipeline Health</span><span>Volume</span></div>
+            <div className="chart-body" style={{ gap: "8px" }}>
+              {funnelCounts.map((count, idx) => (
+                <div key={idx} style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <div style={{ width: "70px", fontSize: "9px", fontWeight: 700, color: STATUS_COLORS[idx], textTransform: "uppercase" }}>{t.funnel_stages[idx].split(' ')[0]}</div>
+                  <div style={{ flex: 1, height: "4px", background: "rgba(255,255,255,0.03)", borderRadius: "2px" }}>
+                    <div style={{ width: `${(count / totalLeads) * 100}%`, height: "100%", background: STATUS_COLORS[idx], borderRadius: "2px" }} />
+                  </div>
+                  <div style={{ width: "20px", fontSize: "10px", fontWeight: 700, textAlign: "right" }}>{count}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* TECH STACK (MINI) */}
+          <div className="chart-card">
+            <div className="chart-title"><span>Top Capabilities</span><span>Tech</span></div>
+            <div className="chart-body" style={{ gap: "8px" }}>
+              {Object.entries(
+                softwareCatalog.reduce((acc, sw) => {
+                  const cat = t.sw_cat_labels[sw.category] || sw.category;
+                  acc[cat] = (acc[cat] || 0) + 1;
+                  return acc;
+                }, {})
+              ).sort((a,b) => b[1] - a[1]).slice(0, 4).map(([label, count]) => (
+                <div key={label} style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <div style={{ flex: 1, fontSize: "10px", fontWeight: 700 }}>{label}</div>
+                  <div style={{ width: "30px", fontSize: "10px", fontWeight: 700, textAlign: "right", color: "var(--accent)" }}>{count} units</div>
+                </div>
+              ))}
+            </div>
+          </div>
+      </div>
+    </div>
+  );
+}
+
+
