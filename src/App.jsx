@@ -118,6 +118,8 @@ const T = {
     lbl_manage_phases: "Manage Phases",
     import_xlsx: "📥 Import (.xlsx)",
     import_confirm: "This will merge data from the Excel file into your database. Existing entries with the same IDs will be updated. New entries will be added. Continue?",
+    confirm_delete_project: "Are you sure you want to delete this project?",
+    confirm_delete_post: "Are you sure you want to delete this post?",
   },
   pt: {
     pipeline: "Pipeline B2B", projects: "Projetos Ativos", vault: "MateriaVault",
@@ -213,6 +215,8 @@ const T = {
     lbl_manage_phases: "Gerir Etapas",
     import_xlsx: "📥 Import (.xlsx)",
     import_confirm: "This will merge data from the Excel file into your database. Existing entries with the same IDs will be updated. New entries will be added. Continue?",
+    confirm_delete_project: "Tem a certeza que deseja eliminar este projeto?",
+    confirm_delete_post: "Tem a certeza que deseja eliminar esta publicação?",
   }
 };
 
@@ -767,6 +771,20 @@ export default function App() {
     setModal(null);
   };
   const deletePartner = async (id) => { await supabase.from('partners').delete().eq('id', id); setPartners(p => p.filter(x => x.id !== id)); setModal(null); };
+  const deleteProject = async (id) => {
+    if (!window.confirm(t.confirm_delete_project || "Are you sure you want to delete this project?")) return;
+    const { error } = await supabase.from('projects').delete().eq('id', id);
+    if (error) { console.error('deleteProject error:', error); alert(`Error: ${error.message}`); return; }
+    setProjects(p => p.filter(x => x.id !== id));
+    setModal(null);
+  };
+  const deleteContent = async (id) => {
+    if (!window.confirm(t.confirm_delete_post || "Are you sure you want to delete this post?")) return;
+    const { error } = await supabase.from('content_calendar').delete().eq('id', id);
+    if (error) { console.error('deleteContent error:', error); alert(`Error: ${error.message}`); return; }
+    setContent(p => p.filter(x => x.id !== id));
+    setModal(null);
+  };
   const saveContent = async (d) => {
     const payload = { ...d };
     if (payload.publish_date === "") payload.publish_date = null;
@@ -1840,11 +1858,11 @@ export default function App() {
 
             {modal.type === "lead" && <LeadModal t={t} data={modal.data} allTypes={allTypes} customLeadTypes={customLeadTypes} customMessages={customMessages} onSave={(d) => { saveLead(d); incrementBackupCounter(); }} onDelete={deleteLead} onClose={() => setModal(null)} />}
 
-            {modal.type === "project" && <ProjectModal t={t} lang={lang} data={modal.data} partners={partners} softwareCatalog={softwareCatalog} customProjectTypes={customProjectTypes} customProjectPhases={customProjectPhases} onSave={(d) => { saveProject(d); incrementBackupCounter(); }} onClose={() => setModal(null)} />}
+            {modal.type === "project" && <ProjectModal t={t} lang={lang} data={modal.data} partners={partners} softwareCatalog={softwareCatalog} customProjectTypes={customProjectTypes} customProjectPhases={customProjectPhases} onSave={(d) => { saveProject(d); incrementBackupCounter(); }} onDelete={deleteProject} onClose={() => setModal(null)} />}
 
             {modal.type === "partner" && <PartnerModal t={t} data={modal.data} projects={projects} onSave={(d) => { savePartner(d); incrementBackupCounter(); }} onDelete={deletePartner} onClose={() => setModal(null)} />}
 
-            {modal.type === "content" && <ContentModal t={t} data={modal.data} onSave={saveContent} onClose={() => setModal(null)} />}
+            {modal.type === "content" && <ContentModal t={t} data={modal.data} onSave={saveContent} onDelete={deleteContent} onClose={() => setModal(null)} />}
 
             {modal.type === "job" && <JobModal t={t} data={modal.data} onSave={saveJob} onClose={() => setModal(null)} />}
 
@@ -2055,7 +2073,7 @@ function LeadModal({ t, data, allTypes, customLeadTypes, customMessages, onSave,
 
 
 
-function ProjectModal({ t, lang, data, partners, softwareCatalog, customProjectTypes, customProjectPhases, onSave, onClose }) {
+function ProjectModal({ t, lang, data, partners, softwareCatalog, customProjectTypes, customProjectPhases, onSave, onDelete, onClose }) {
 
   const [f, setF] = useState(() => {
 
@@ -2470,11 +2488,9 @@ function ProjectModal({ t, lang, data, partners, softwareCatalog, customProjectT
     <div className="form-group"><label className="form-label">{t.lbl_assets}</label><input className="form-input" value={f.assets} onChange={e => s("assets", e.target.value)} placeholder={t.ph_assets} /></div>
 
     <div className="modal-footer">
-
+      {data && <button className="btn btn-danger btn-sm" onClick={() => onDelete(data.id)}>{t.delete}</button>}
       <button className="btn btn-ghost" onClick={onClose}>{t.cancel}</button>
-
       <button className="btn btn-primary" onClick={() => onSave(f)}>{t.save}</button>
-
     </div>
 
   </>;
@@ -2483,7 +2499,7 @@ function ProjectModal({ t, lang, data, partners, softwareCatalog, customProjectT
 
 
 
-function ContentModal({ t, data, onSave, onClose }) {
+function ContentModal({ t, data, onSave, onDelete, onClose }) {
 
   const [f, setF] = useState(data || { type_key: 0, title: "", body: "", status_key: 0, date: "" });
 
@@ -2524,11 +2540,9 @@ function ContentModal({ t, data, onSave, onClose }) {
     <div className="form-group"><label className="form-label">{t.lbl_publish_date}</label><input className="form-input" type="date" value={f.date} onChange={e => s("date", e.target.value)} /></div>
 
     <div className="modal-footer">
-
+      {data && <button className="btn btn-danger btn-sm" onClick={() => onDelete(data.id)}>{t.delete}</button>}
       <button className="btn btn-ghost" onClick={onClose}>{t.cancel}</button>
-
       <button className="btn btn-primary" onClick={() => onSave(f)}>{t.save}</button>
-
     </div>
 
   </>;
