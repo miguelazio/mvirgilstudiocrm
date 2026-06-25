@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
-const DEFAULT_URL = 'https://ayfxscdfcyowyeaktnnn.supabase.co';
-const DEFAULT_KEY = 'sb_publishable_0j-KuWXh1xwik2RV53jJXA_IqP_3gq2';
+const DEFAULT_URL = 'https://orvdnrqgcxqzpwhjtddh.supabase.co';
+const DEFAULT_KEY = 'sb_publishable_PJzVphKD8WAwzRc5N_Z1Wg_kaem6w4W';
 
 const savedUrl = localStorage.getItem('supabase_url') || DEFAULT_URL;
 const savedKey = localStorage.getItem('supabase_key') || DEFAULT_KEY;
