@@ -759,6 +759,7 @@ export default function App() {
   const togglePaid = async (id, idx) => { const proj = projects.find(p => p.id === id); if (!proj) return; const paid = [...proj.paid]; paid[idx] = !paid[idx]; const { data } = await supabase.from('projects').update({ paid }).eq('id', id).select().single(); if (data) setProjects(p => p.map(x => x.id === id ? data : x)); };
   const savePartner = async (d) => {
     const payload = { ...d };
+    if (payload.projectId === "") payload.projectId = null;
     if (d.id) {
       const { data, error } = await supabase.from('partners').update(payload).eq('id', d.id).select().single();
       if (error) { console.error('savePartner error:', error); alert(`Error: ${error.message}`); return; }
